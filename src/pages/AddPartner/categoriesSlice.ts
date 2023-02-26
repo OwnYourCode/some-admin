@@ -8,7 +8,7 @@ import { RootState } from '../../app/store';
 
 export const getCategories = createAsyncThunk<{ items: Category[]; totalCount?: number }>(
   'categories/get',
-  async (thunkApi) => {
+  async () => {
     // TODO: it's hardcoded because of the API required to pass query params
     const limit = 1000;
 
@@ -42,7 +42,7 @@ export const categoriseSlice = createSlice({
         state.status = Status.RESOLVED;
         state.categories = categories;
       })
-      .addCase(getCategories.pending, (state, action) => {
+      .addCase(getCategories.pending, (state) => {
         state.status = Status.PENDING;
       })
       .addCase(getCategories.rejected, (state, action) => {

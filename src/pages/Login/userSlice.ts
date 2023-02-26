@@ -6,7 +6,7 @@ import { RootState } from '../../app/store';
 import { notify } from '../../components/Notification/Notification';
 import i18next from 'i18next';
 
-export const signIn = createAsyncThunk('userInfo/signin', async (_, thunkApi) => {
+export const signIn = createAsyncThunk('userInfo/signin', async (_, _thunkApi) => {
   try {
     const result = await authService.signin();
     console.log(result);
@@ -16,7 +16,7 @@ export const signIn = createAsyncThunk('userInfo/signin', async (_, thunkApi) =>
   }
 });
 
-export const signOut = createAsyncThunk('userInfo/signout', async (_, thunkApi) => {
+export const signOut = createAsyncThunk('userInfo/signout', async (_, _thunkApi) => {
   try {
     const result = await authService.logout();
     console.log('result', result);
@@ -71,25 +71,25 @@ export const userSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(signIn.fulfilled, (state, { payload, meta, type }) => {
+      .addCase(signIn.fulfilled, (state, { payload }) => {
         state.status = Status.RESOLVED;
         state.userInfo = payload as any;
       })
-      .addCase(signIn.pending, (state, action) => {
+      .addCase(signIn.pending, (state) => {
         state.status = Status.PENDING;
       })
       .addCase(signIn.rejected, (state, action) => {
         state.error = action.error;
       })
-      .addCase(signOut.fulfilled, (state, action) => {
+      .addCase(signOut.fulfilled, (state) => {
         state.status = Status.RESOLVED;
         // TODO: change to reset the whole store
         state.userInfo = null;
       })
-      .addCase(signOut.rejected, (state, action) => {
+      .addCase(signOut.rejected, (state) => {
         state.status = Status.REJECTED;
       })
-      .addCase(signOut.pending, (state, action) => {
+      .addCase(signOut.pending, (state) => {
         state.status = Status.PENDING;
       });
   },
