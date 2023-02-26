@@ -1,0 +1,141 @@
+parameters:
+  - name: deploydev
+    displayName: Force deploy to dev environment.
+    type: boolean
+    default: false
+
+trigger:
+ branches:
+   include:
+     - master
+     - dev
+ tags:
+   include:
+     - '*'
+
+stages:
+  - stage: Build
+    pool:
+      vmImage: 'ubuntu-latest'
+    jobs:
+      - job: 'BuildJob'
+        steps:
+        - task: NodeTool@0
+          inputs:
+            versionSpec: '10.x'
+          displayName: 'Install Node.js'
+
+        - script: |
+            npm install
+            npm run build:dev
+          displayName: 'build bookingplanner-api-portal-frontend'
+
+  - stage: 'DeployToDev'
+    displayName: 'Deploy to dev'
+    dependsOn:
+     - Build
+    condition: |
+      and
+      (
+        succeeded('Build'),
+        or
+        (
+          eq(variables['Build.SourceBranchName'], 'dev'),
+          eq(variables['Build.SourceBranchName'], 'master'),
+          startsWith(variables['build.sourceBranch'], 'refs/tags/dev'),
+          eq('${{ parameters.deploydev }}', true)
+        )
+      )
+    jobs:
+    - deployment: Deploy
+      pool:
+        vmImage: 'windows-latest'
+      environment: 'dev'
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+            - checkout: self
+
+            - task: NodeTool@0
+              inputs:
+                versionSpec: '10.x'
+              displayName: 'Install Node.js'
+
+            - script: |
+                call npm install
+                call npm run build:dev
+              displayName: 'build bookingplanner-api-portal-frontend-dev'
+
+
+            - task: 'AzureFileCopy@3' #AzureFileCopy4 gives authorization error
+              inputs:
+                sourcePath: $(System.DefaultWorkingDirectory)/build
+                azureSubscription: bookingplanner-api-portal-frontend-dev-sc
+                destination: azureBlob
+                storage: bpapiportalfrontenddev
+                containerName: $web
+
+            - task: 'AzureCLI@2'
+              displayName: Purge cache after deployment
+              inputs:
+                azureSubscription: MediaLibrary-sc
+                scriptType: ps
+                scriptLocation: inlineScript
+                inlineScript: |
+                  az cdn endpoint purge -g MediaLibrary -n bpapiportalfrontenddev --profile-name example --content-paths '/*' --no-wait
+
+  - stage: 'DeployToProduction'
+    displayName: 'Deploy to production'
+    dependsOn:
+     - Build
+    condition: |
+      and
+      (
+        succeeded('Build'),
+        eq(variables['Build.SourceBranchName'], 'master')
+      )
+    jobs:
+    - deployment: Deploy
+      pool:
+        vmImage: 'windows-latest'
+      environment: 'production'
+#      variables:
+#        - group: production
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+            - checkout: self
+#           - task: FileTransform@1
+#             inputs:
+#               folderPath: '$(System.DefaultWorkingDirectory)/'
+#                fileType: 'json'
+#                targetFiles: |
+#                  src/appsettings.json
+
+            - task: NodeTool@0
+              inputs:
+                versionSpec: '10.x'
+              displayName: 'Install Node.js'
+
+            - script: |
+                call npm install
+                call npm run build:prod
+              displayName: 'build bookingplanner-api-portal-frontend'
+
+            - task: 'AzureFileCopy@3' #AzureFileCopy4 gives authorization error
+              inputs:
+                sourcePath: $(System.DefaultWorkingDirectory)/build
+                azureSubscription: bookingplanner-api-portal-frontend-sc
+                destination: azureBlob
+                storage: bpapiportalfrontend
+                containerName: $web
+            - task: 'AzureCLI@2'
+              displayName: Purge cache after deployment
+              inputs:
+                azureSubscription: MediaLibrary-sc
+                scriptType: ps
+                scriptLocation: inlineScript
+                inlineScript: |
+                  az cdn endpoint purge -g MediaLibrary -n bpapiportalfrontend --profile-name example --content-paths '/*' --no-wait
